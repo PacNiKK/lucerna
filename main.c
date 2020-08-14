@@ -1,9 +1,36 @@
+#include<unistd.h>
+#include<stdlib.h>
 #include<stdio.h>
-#include <unistd.h>
 #include<wiringPi.h>
+#include <time.h>
+#include <errno.h>    
+
+/* msleep(): Sleep for the requested number of milliseconds. */
+int msleep(long msec)
+{
+    struct timespec ts;
+    int res;
+
+    if (msec < 0)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    ts.tv_sec = msec / 1000;
+    ts.tv_nsec = (msec % 1000) * 1000000;
+
+    do {
+        res = nanosleep(&ts, &ts);
+    } while (res && errno == EINTR);
+
+    return res;
+}
 
 //Global definitions
 #define scene_size 24  //Number of channels in each scene
+#define step 100
+//char path[] ="scenes/";
 
 //Setup the GPIO pins as inputs or outputs and the buttons as pull-up
 void gpio_init(void) {
@@ -50,13 +77,47 @@ void interrupt_init(void){
     wiringPiISR(2, INT_EDGE_FALLING, &button5);
 }
 
+
+
 //Function to print a integer-array
+//Todo: color based on value?
 void print_array(int *array, int size){
     printf("[ %i", array[0]);
     for(int i=1; i<size;i++){
         printf(" ,%i", array[i]);
     }
     printf(" ]\n");
+}
+
+void print_array_g(int *array, int size){
+    system("clear");
+    for(int iSize=0;iSize<size;iSize++){
+        printf("CH%d:", iSize);
+        for(int iValue=0;iValue<array[iSize];iValue+=2) printf("=");
+        printf("\n");
+    }
+}
+
+//Read scene file and output array
+
+int set_scene_file(char *path, int *scene){
+    FILE *fptr;
+
+    if ((fptr = fopen(path,"r")) == NULL){
+        printf("Error! opening file");
+
+        // Program exits if the file pointer returns NULL.
+        exit(1);
+    }
+    for(int i=0;i<scene_size;i++){
+        fscanf(fptr, "%d%[^\n]", &scene[i] );
+    }
+    return 0;
+}
+
+//changes [*scene] in [time] to [*fadeto]
+void scene_fade(int *scene, int *fadeto, int size, int time){
+    //doNext
 }
 
 int main() {
@@ -68,7 +129,12 @@ int main() {
     int sceneD[scene_size] = {0};
     int sceneE[scene_size] = {0};
     int sceneF[scene_size] = {0};
+    int sceneNow[scene_size] = {0};
+    set_scene_file("scenes/sceneA.txt", sceneA);
     print_array(sceneA,scene_size);
+    msleep(2000);
+    print_array_g(sceneA,scene_size);
+    scene_fade(sceneNow, sceneA, scene_size, 2000);
 	printf("Listening...\n");
 	getchar();
     printf("Stopping...\n");
