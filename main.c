@@ -29,7 +29,7 @@ int msleep(long msec)
 
 //Global definitions
 #define scene_size 24  //Number of channels in each scene
-#define step 100
+#define step 20
 //char path[] ="scenes/";
 
 //Setup the GPIO pins as inputs or outputs and the buttons as pull-up
@@ -91,7 +91,7 @@ void print_array(int *array, int size){
 
 void print_array_g(int *array, int size){
     system("clear");
-    for(int iSize=0;iSize<size;iSize++){
+    for(int iSize=1;iSize<=size;iSize++){
         printf("CH%d:", iSize);
         for(int iValue=0;iValue<array[iSize];iValue+=2) printf("=");
         printf("\n");
@@ -115,9 +115,44 @@ int set_scene_file(char *path, int *scene){
     return 0;
 }
 
+//subtract arrays
+void subtract(int *x, int *y, int *result, int size){
+    for (int i = 0 ; i < size ; ++i)
+        result[i] = x[i] - y[i];
+}
+
+void add(int *x, float *y, float *result, int size){
+    for (int i = 0 ; i < size ; ++i)
+        result[i] = y[i] + x[i];
+}
+
+void divide(int *x, int y, float *result, int size){
+    for (int i = 0 ; i < size ; ++i)
+        result[i] = x[i]/y;
+}
+
+void arr_round(float *x, int *result, int size){
+    for (int i = 0 ; i < size ; ++i)
+        result[i] = (int)(x[i]+0.5);
+}
+
 //changes [*scene] in [time] to [*fadeto]
 void scene_fade(int *scene, int *fadeto, int size, int time){
-    //doNext
+    int diff[scene_size]={0};
+    float ddiff[scene_size]={0};
+    int i=0;
+    int steps=0;
+    float out[scene_size]={0};
+    steps=time/step;
+    subtract(fadeto, scene, diff, size);
+    divide(diff, steps, ddiff, size);
+    while(i<=time){
+        i+=step;
+        add(scene, ddiff, out, size);
+        arr_round(out, scene, size);
+        print_array_g(scene, scene_size);
+        msleep(step);
+    }
 }
 
 int main() {
