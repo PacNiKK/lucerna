@@ -4,6 +4,35 @@
 #include<wiringPi.h>
 #include <time.h>
 #include <errno.h>    
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+//static const char* dev = "/dev/dmx0";
+static const char* dev= "dummy.txt";
+static int level = 255;
+static int test = 1;
+
+static unsigned char buffer[513];
+static int fd = -1;
+
+static void open_dev(void)
+{
+	fd = open(dev, O_WRONLY);
+	if (fd < 0) {
+		perror("open");
+		exit(-1);
+	}
+}
+
+static void write_buffer(void)
+{
+	if (write(fd, buffer, 513) < 0) {
+		perror("write");
+		exit(-1);
+	}
+}
 
 /* msleep(): Sleep for the requested number of milliseconds. */
 int msleep(long msec)
@@ -137,7 +166,7 @@ void arr_round(float *x, int *result, int size){
 }
 
 //changes [*scene] in [time] to [*fadeto]
-void scene_fade(int *scene, int *fadeto, int size, int time){
+void dummy_scene_fade(int *scene, int *fadeto, int size, int time){
     int diff[scene_size]={0};
     float ddiff[scene_size]={0};
     int i=0;
