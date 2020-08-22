@@ -9,6 +9,7 @@
         public:
             bool writable;
             int size;
+            int master;
             double channel[512];
             scene();
             scene(int);
@@ -19,6 +20,7 @@
             dmx_buffer to_dmx();
             void print();
             void print_g();
+            void print_g(int);
             scene operator+(scene);
             scene operator-(scene);
             scene operator*(int);

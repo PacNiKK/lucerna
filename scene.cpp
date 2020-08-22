@@ -14,7 +14,7 @@ dmx_buffer scene::to_dmx(){
     dmx_buffer result;
     result.size=this -> size+1;
     for( int i=0; i<this->size; ++i){
-        result.channel[i+1]=(unsigned char)round(this -> channel[i]);
+        result.channel[i+1]=(unsigned char)round(this -> channel[i]*((double)this -> master/255));
     }
     return result;
 }
@@ -65,7 +65,24 @@ void scene::print(){
     for(int i=1; i < this -> size;++i){
         printf("; %d", (int)this -> channel[i]);
     }
-    printf(" ]\n");
+    printf(" Master is at level: %d]\n", this -> master);
+}
+
+void scene::print_g(int HL){
+    system("clear");
+    for( int iCH=1 ; iCH <= this -> size ; ++iCH){
+        
+        if(iCH==HL+1){
+            printf(">CH%d", iCH);
+        }else{
+            printf(" CH%d", iCH);
+        }
+        if(iCH<10) printf(" ");
+        printf(":");
+        for( int iValue = 0 ; iValue < (int)round(this -> channel[iCH-1]*((double)this -> master/255)); iValue+=2 ) printf("=");
+        printf("\n");
+    }
+    printf("Master: %d\n", this -> master);
 }
 
 void scene::print_g(){
@@ -73,9 +90,10 @@ void scene::print_g(){
     for( int iCH=1 ; iCH <= this -> size ; ++iCH){
         if(iCH<10) printf(" ");
         printf("CH%d:", iCH);
-        for( int iValue = 0 ; iValue < (int)this -> channel[iCH-1] ; iValue+=2 ) printf("=");
+        for( int iValue = 0 ; iValue < (int)round(this -> channel[iCH-1]*((double)this -> master/255)); iValue+=2 ) printf("=");
         printf("\n");
     }
+    printf("Master: %d\n", this -> master);
 }
 
 void scene::load(std::string path, int size, bool writable){
@@ -95,9 +113,13 @@ void scene::load(std::string path, int size, bool writable){
 
 void scene::save(std::string path){
     if(this -> writable){
-        fstream outputFile(path);
+        ofstream outputFile(path);
         if (outputFile.good()){
-            for (int i=0;i<size;++i){
+            cout << std::to_string(this->size);
+            cout << endl;
+            for (int i=0;i<this->size;++i){
+                cout << std::to_string(this->channel[i]);
+                cout << endl;
                 outputFile << this -> channel[i];
                 outputFile << endl;
             }
@@ -110,10 +132,12 @@ void scene::save(std::string path){
 scene::scene(){
     this -> size=0;
     this -> writable=false;
+    this -> master=255;
 }
 scene::scene(int size){
-    this->size=size;
-    this->writable=false;
+    this -> size=size;
+    this -> writable=false;
+    this -> master=255;
 }
 
 scene::scene(std::string path, int size, bool writable){
@@ -128,6 +152,7 @@ scene::scene(std::string path, int size, bool writable){
     inputFile.close();
     this -> size = size;
     this -> writable = writable;
+    this -> master=255;
     cout << "Load scene in "+ path +"...\n";
 }
 
