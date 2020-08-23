@@ -15,7 +15,7 @@ static const char* dev = "/dev/dmx0";       //dmx device location
 static dmx_buffer dmx;
 static const int scene_size=24;
 static const int time_per_step=20;
-static bool testmode=true;
+static bool testmode=false;
 static int fd = -1;
 
 
@@ -315,7 +315,7 @@ int main(){
     gpio_init();
     interrupt_init();
     digitalWrite(24, HIGH);
-    if(!testmode) open_dev();
+    open_dev();
     dmx.size=scene_size+1;
     dmx.channel[0]=0x00;
     current=sceneA;
@@ -353,7 +353,7 @@ int main(){
                     //cout << endl;
                 }
                 dmx=current.to_dmx();
-                if(!testmode) write_buffer();
+                write_buffer();
                 current.print_g(edit_channel);
                 printf("%d\n", edit_channel);
                 edit_rot_flag=0;        
@@ -370,11 +370,12 @@ int main(){
                 current=current+diff;
                 current.master=master_level;
                 dmx=current.to_dmx();
-                if(!testmode) write_buffer();
+                write_buffer();
                 current.print_g();
                 msleep(time_per_step-15);
             }
         }
+	write_buffer();
 
     }
     return 0;

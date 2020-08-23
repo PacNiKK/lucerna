@@ -16,6 +16,7 @@ dmx_buffer scene::to_dmx(){
     for( int i=0; i<this->size; ++i){
         result.channel[i+1]=(unsigned char)round(this -> channel[i]*((double)this -> master/255));
     }
+    result.channel[0]=0x00;
     return result;
 }
 
