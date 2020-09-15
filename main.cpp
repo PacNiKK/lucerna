@@ -15,27 +15,31 @@ static const char* dev = "/dev/dmx0";       //dmx device location
 static dmx_buffer dmx;
 static const int scene_size=24;
 static const int time_per_step=20;
-static bool testmode=false;
+static bool testmode=true;
 static int fd = -1;
 
 
 //open DMX device
 static void open_dev(void)
 {
+    if(!testmode){
         fd = open(dev, O_WRONLY);
         if (fd < 0) {
                 perror("open");
                 exit(-1);
         }
+    }
 }
 
 //write buffer to DMX device
 static void write_buffer(void)
 {
+    if(!testmode){
         if (write(fd, dmx.channel, 513) < 0) {
                 perror("write");
                 exit(-1);
         }
+    }
 }
 
 
