@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <wiringPi.h>
+#include <mcp23017.h>
+#include <pcf8591.h>
 #include "scene.h"
 #include <stdio.h>
 #include <sys/types.h>
@@ -13,11 +15,39 @@ using namespace std;
 //settings
 static const char* dev = "/dev/dmx0";       //dmx device location
 static dmx_buffer dmx;
-static const int scene_size=24;
-static const int time_per_step=20;
-static bool testmode=true;
+static const int scene_size=24;             //channels per scene
+static const int time_per_step=20;          //ms per step of fade
+static bool testmode=true;                  //true if no device connected (output on console)
 static int fd = -1;
 
+//pin variables inputs
+int switch1=135;
+int switch2=134;
+int switch3=133;
+int switch4=132;
+int switch5=131;
+int switch6=130;
+int switch7=129;
+int switch8=128;
+int switch_fade=103;
+int switch_rotary=102;
+int rotary_dt=101;
+int rotary_clk=100;
+
+//pins outputs
+int led1=120;
+int led2=121;
+int led3=122;
+int led4=123;
+int led5=124;
+int led6=125;
+int led7=126;
+int led8=127;
+int led_fade_switch=108;
+int led_fade1=107;
+int led_fade2=106;
+int led_fade3=105;
+int led_fade4=104;
 
 //open DMX device
 static void open_dev(void)
@@ -51,17 +81,17 @@ static scene black(scene_size);
 static scene temp(scene_size);
 static bool fade_flag=false;
 static int fade_time=2000;
-static int master_level=255;
+//static int master_level=255;
 static int edit_rot=0;
 static int edit_rot_flag=0;
 static int edit_channel=0;
 static int edit_flag=0;
 static int edit_change=0;
 
-
 //timestructs used for debouncing buttons
 struct timeval last_interrupt;
 struct timeval interrupt;
+
 
 //initialize and load scenes
 static scene sceneA("scenes/sceneA.txt", 24, FALSE);
@@ -79,40 +109,32 @@ void msleep(int m){
 //initialize GPIO for Buttons and LEDs
 void gpio_init(void) {
     wiringPiSetup();
-    pinMode(8, INPUT);
-    pinMode(3, INPUT);
-    pinMode(7, INPUT);
-    pinMode(0, INPUT);
-    pinMode(2, INPUT);
-    pinMode(21, INPUT);
-    pinMode(22, INPUT);
-    pinMode(23, INPUT);
-    pinMode(26, INPUT);
-    pinMode(6, INPUT);
-    pinMode(24, OUTPUT);
-    pinMode(25, OUTPUT);
-    pinMode(27, OUTPUT);
-    pinMode(28, OUTPUT);
-    pinMode(29, OUTPUT);
-    pinMode(1, INPUT);
-    pinMode(4, INPUT);
-    pinMode(5, INPUT);
+    mcp23017Setup(120, 0x20);
+    mcp23017Setup(100, 0x21);
+    pcf8591Setup(80, 0x4f);
     
-    digitalWrite(24, HIGH);
-    digitalWrite(25, HIGH);
-    digitalWrite(27,HIGH);
-    digitalWrite(28,HIGH);
-    digitalWrite(29,LOW);
+    //0x20
+    for(int i = 0 ; i < 8 ; ++i)
+    pinMode(120+i,OUTPUT);
+    for(int i = 0 ; i < 8 ; ++i)
+    {
+        pinMode(128+i, INPUT);
+        pullUpDnControl(128+i, PUD_UP);
+    }
+    //0x21
+    for(int i = 0 ; i < 4 ; ++i)
+    {
+        pinMode(100+i,INPUT);
+        pullUpDnControl(100+i, PUD_UP);
+    }
+    for(int i=0 ; i < 8 ; ++i)
+    pinMode(104+i, OUTPUT);
+    for(int i = 0 ; i < 3 ; ++i)
+    {
+        pinMode(112+i, INPUT);
+        pullUpDnControl(112+i, PUD_UP);
+    }
 
-    pullUpDnControl(8, PUD_UP);
-    pullUpDnControl(3, PUD_UP);
-    pullUpDnControl(7, PUD_UP);
-    pullUpDnControl(0, PUD_UP);
-    pullUpDnControl(2, PUD_UP);
-    pullUpDnControl(21, PUD_UP);
-    pullUpDnControl(26, PUD_UP);
-    pullUpDnControl(6, PUD_UP);
-    pullUpDnControl(1, PUD_UP);
 }
 
 //Interrupt funcions for the buttons
@@ -200,29 +222,46 @@ void button5(void) {
 
 void button6(void) {
     gettimeofday(&interrupt,NULL);
+    if((interrupt.tv_sec * 1000 + interrupt.tv_usec / 1000)-(last_interrupt.tv_sec * 1000 + last_interrupt.tv_usec / 1000)>=200){
+        printf("Button 6 Pressed\n");
+        if(edit_flag==0){
+            fade_to=sceneF;
+            fade_flag=true;
+        }else if(edit_flag==2){
+            sceneF=current;
+            sceneF.writable=true;
+            sceneF.save("scenes/sceneF.txt");
+            edit_flag=0;
+        }
+    last_interrupt=interrupt;
+    }
+}
+
+void button_fade(void) {
+    gettimeofday(&interrupt,NULL);
     if((interrupt.tv_sec * 1000 + interrupt.tv_usec / 1000)-(last_interrupt.tv_sec * 1000 + last_interrupt.tv_usec / 1000)>=300){
         printf("Button 6 Pressed\n");
         if (fade_time==2000){
             fade_time=0;
-            digitalWrite(25, LOW);
-            digitalWrite(27, LOW);
-            digitalWrite(28, LOW);
+            digitalWrite(led_fade2, LOW);
+            digitalWrite(led_fade3, LOW);
+            digitalWrite(led_fade4, LOW);
         }else if(fade_time==0){
             fade_time=500;
-            digitalWrite(25, HIGH);
+            digitalWrite(led_fade2, HIGH);
         }else if(fade_time==500){
             fade_time=1000;
-            digitalWrite(27, HIGH);
+            digitalWrite(led_fade3, HIGH);
         }else{
             fade_time=2000;
-            digitalWrite(28, HIGH);
+            digitalWrite(led_fade4, HIGH);
         }
         printf("Fade now %d ms\n", fade_time);
         last_interrupt=interrupt;
     }
 }
 
-void rotary_master(void) {
+/*void rotary_master(void) {
     gettimeofday(&interrupt,NULL);
     if((interrupt.tv_sec * 1000 + interrupt.tv_usec / 1000)-(last_interrupt.tv_sec * 1000 + last_interrupt.tv_usec / 1000)>=35){
         if(edit_flag==0){
@@ -295,30 +334,30 @@ void edit(void){
         }
     }
     last_interrupt=interrupt;
-}
+}*/
 
 
 //initialize interrupt functions
-void interrupt_init(void){
-    wiringPiISR(8, INT_EDGE_FALLING, &button1);
-    wiringPiISR(3, INT_EDGE_FALLING, &button2);
-    wiringPiISR(7, INT_EDGE_FALLING, &button3);
-    wiringPiISR(0, INT_EDGE_FALLING, &button4);
-    wiringPiISR(2, INT_EDGE_FALLING, &button5);
-    wiringPiISR(26, INT_EDGE_FALLING, &button6);
+/*void interrupt_init(void){
+    wiringPiISR(switch1, INT_EDGE_FALLING, &button1);
+    wiringPiISR(switch2, INT_EDGE_FALLING, &button2);
+    wiringPiISR(switch3, INT_EDGE_FALLING, &button3);
+    wiringPiISR(switch4, INT_EDGE_FALLING, &button4);
+    wiringPiISR(switch5, INT_EDGE_FALLING, &button5);
+    wiringPiISR(switch_fade, INT_EDGE_FALLING, &button6);
     wiringPiISR(23, INT_EDGE_FALLING, &rotary_master);
     wiringPiISR(5, INT_EDGE_FALLING, &rotary_edit);
     wiringPiISR(6, INT_EDGE_FALLING, &edit);
     wiringPiISR(1, INT_EDGE_FALLING, &edit_mode);
     
-}
+}*/
 
 
 int main(){
     gettimeofday(&last_interrupt, NULL);
     gpio_init();
-    interrupt_init();
-    digitalWrite(24, HIGH);
+    //interrupt_init();
+    digitalWrite(led_fade1, HIGH);
     open_dev();
     dmx.size=scene_size+1;
     dmx.channel[0]=0x00;
@@ -372,15 +411,32 @@ int main(){
             diff=diff/steps;
             for(int i=0;i<time;i+=time_per_step){
                 current=current+diff;
-                current.master=master_level;
+                current.master=analogRead(80);
                 dmx=current.to_dmx();
                 write_buffer();
                 current.print_g();
                 msleep(time_per_step-15);
             }
         }
-	write_buffer();
-
+    current.master=analogRead(80);
+    dmx=current.to_dmx();
+    write_buffer();
+    current.print_g();
+    if(digitalRead(switch1)==HIGH)
+    button1();
+    if(digitalRead(switch2)==HIGH)
+    button2();
+    if(digitalRead(switch3)==HIGH)
+    button3();
+    if(digitalRead(switch4)==HIGH)
+    button4();
+    if(digitalRead(switch5)==HIGH)
+    button5();
+    if(digitalRead(switch6)==HIGH)
+    button6();
+    if(digitalRead(switch_fade)==LOW)
+    button_fade();
     }
+    
     return 0;
 }
